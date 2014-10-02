@@ -1,0 +1,79 @@
+#Assignment 3
+#Enrico Tedeschi ete011
+
+import socket 
+import sys
+import os
+import marshal
+from Crypto import Random
+from Crypto.Cipher import AES
+import Crypto.Random.OSRNG.posix
+from Crypto.PublicKey import RSA
+
+
+class client:
+	def run(self):
+		try:
+			size = 1024
+			port = 8080
+			ip = "127.0.0.1"
+			
+			c=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #create client socket
+
+			if(len(sys.argv) < 2):
+				print 'ip address missing! default is 127.0.0.1'
+				c.connect((ip, port))
+			else:	
+				c.connect((sys.argv[1], port))
+
+			while 1:
+			
+				
+				#generate keys pair
+				keys = RSA.generate(1024)
+				public = keys.publickey().exportKey()
+				
+				#sending the public key
+				c.send(marshal.dumps(public))			
+				print 'sending request...'
+				
+				read_data = 1
+				my_data_received=''
+				
+				while read_data:				#cycle to receive data
+					data=c.recv(size) 			#data serialized received
+					if data=='':
+						read_data=0
+					my_data_received=my_data_received+data	
+					
+				list = marshal.loads(my_data_received)	#msg and c_aes_key saved in list
+				
+				
+				
+				#decrypting c_aes_key with private key
+				aes_key=keys.decrypt(list[1])
+				
+				#decrypting msg with AES key just decrypted
+				iv = list[0][:16]
+				decryptor=AES.new(aes_key, AES.MODE_CFB, iv)
+				#plaintext is the content of the file
+				plaintext=decryptor.decrypt(list[0][16:])
+				
+				#write on the file
+				file=open('data_received.txt', 'w')
+				file.write(plaintext)
+				#print 'plain: ', plaintext
+				print 'data received!\ndata saved'
+				
+				break #used a cycle for a future implementation, but for now there is no need
+				
+				
+		except Exception, message:
+			print 'exception found: ', message
+			
+			
+
+			
+if __name__=="__main__":
+	client=client()
+	client.run()
