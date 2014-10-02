@@ -1,0 +1,90 @@
+#Assignment 3
+#Enrico Tedeschi ete011
+
+import socket 
+import sys
+import os
+import marshal
+from Crypto import Random
+from Crypto.Cipher import AES
+import Crypto.Random.OSRNG.posix
+from Crypto.PublicKey import RSA
+
+class aes:
+	def gen_aes_key(self,size):
+	
+		#print "into func gen_aes_key"
+		return os.urandom(size)
+	
+	def generate_nonce():
+		return Crypto.Random.OSRNG.posix.new().read(8) #where 8 is the block size
+	
+	#generate random AES-256 key
+
+
+class server:
+	def run(self):
+		try:
+		
+			s=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #if UDP SOCK_DGRAM if ipv6 AF_INET6
+			host='127.0.0.1'
+			port=8080
+			backlog=5
+			size = 1024
+		
+			s.bind((host,port))
+			s.listen(backlog)
+			print "Server is running...\nPort: 8080\nWaiting for the client request..."
+			
+			while 1:
+				client,address=s.accept() 	#accept the connection from client
+				string_public=client.recv(size)		#string of public key received from the client
+		
+				key_public=RSA.importKey(marshal.loads(string_public))
+				
+				
+				print "connection accepted"
+				
+				#send data to client
+				if (len(sys.argv) < 2):
+					print 'file name missing'
+				else:
+					file=open(sys.argv[1],'r')
+					
+					#AES encryption of the message
+					my_aes=aes()
+					#print "before key"
+					#qui ora genera sempre chiave a 16 bytes, aggiungi la parte di controllo di sys.args (fuori dal metodo)
+					
+					#generate key 16 bit
+					key = my_aes.gen_aes_key(16)
+					print 'default dimension key: 16 bit'
+					
+					iv = Random.new().read(AES.block_size)
+					#print "after initial vector"
+					cipher = AES.new(key, AES.MODE_CFB, iv)
+					print "after new cipher"
+					#crypted message
+					msg = iv + cipher.encrypt(str(file.read()))
+					print 'message ok'
+					#encrypt AES key with public key in c_aes_key
+					c_aes_key = key_public.encrypt(key, None)[0]
+					
+					#sending msg_to_send = msg + AES cripted key
+					msg_to_send = [msg, c_aes_key]
+					client.send(marshal.dumps(msg_to_send)) #serialization
+					print 'sending data..'
+					
+				break
+		except Exception, message:
+			print 'exception found: ', message
+
+
+	
+if __name__=="__main__":
+	server=server()
+	server.run()
+	
+	#linea di comando: 
+		#for arg in sys.argv: 1
+		#print arg
